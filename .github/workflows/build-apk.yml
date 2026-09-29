@@ -19,6 +19,12 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Keep Android signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: food-tracker-debug-keystore-v1
+
       - name: Install Android SDK packages
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
