@@ -38,5 +38,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Keith-Food-Tracker-V1.0-APK
+          name: Keith-Food-Tracker-V1.1-APK
           path: app/build/outputs/apk/debug/app-debug.apk

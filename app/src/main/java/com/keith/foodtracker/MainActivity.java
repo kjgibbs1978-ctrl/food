@@ -74,7 +74,9 @@ public class MainActivity extends Activity {
     private TextView carbsTotal;
     private TextView fatTotal;
     private TextView fibreTotal;
-    private TextView macroLegend;
+    private TextView proteinLegend;
+    private TextView carbsLegend;
+    private TextView fatLegend;
     private MacroPieView pieView;
     private int editingIndex = -1;
 
@@ -154,19 +156,16 @@ public class MainActivity extends Activity {
         content.removeAllViews();
         loadTodayEntries();
 
-        ScrollView scroll = new ScrollView(this);
-        scroll.setFillViewport(true);
-        LinearLayout body = new LinearLayout(this);
-        body.setOrientation(LinearLayout.VERTICAL);
-        body.setPadding(0, 0, 0, dp(22));
-        scroll.addView(body);
+        LinearLayout page = new LinearLayout(this);
+        page.setOrientation(LinearLayout.VERTICAL);
 
         LocalDate now = LocalDate.now();
         TextView date = text(now.format(DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.UK)), 18, TEXT, true);
         LinearLayout.LayoutParams dateLp = lpMatchWrap();
         dateLp.bottomMargin = dp(10);
-        body.addView(date, dateLp);
+        page.addView(date, dateLp);
 
+        // Keep today's totals permanently visible while the food log below scrolls.
         LinearLayout totalsCard = cardLayout();
         TextView totalsTitle = text("TODAY'S TOTAL", 13, MUTED, true);
         totalsCard.addView(totalsTitle);
@@ -188,49 +187,54 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams fibreLp = lpMatchWrap();
         fibreLp.topMargin = dp(6);
         totalsCard.addView(fibreTotal, fibreLp);
-        body.addView(totalsCard, cardLp());
+        page.addView(totalsCard, cardLp());
 
-        LinearLayout chartCard = cardLayout();
-        TextView chartTitle = text("MACRO SPLIT", 13, MUTED, true);
-        chartCard.addView(chartTitle);
-        pieView = new MacroPieView(this);
-        LinearLayout.LayoutParams pieLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(190));
-        pieLp.topMargin = dp(4);
-        chartCard.addView(pieView, pieLp);
-        macroLegend = text("", 14, TEXT, false);
-        macroLegend.setGravity(Gravity.CENTER);
-        chartCard.addView(macroLegend, lpMatchWrap());
-        body.addView(chartCard, cardLp());
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        LinearLayout body = new LinearLayout(this);
+        body.setOrientation(LinearLayout.VERTICAL);
+        body.setPadding(0, 0, 0, dp(22));
+        scroll.addView(body);
 
         LinearLayout logCard = cardLayout();
         logCard.addView(text("LOG FOOD", 13, MUTED, true));
 
         foodSpinner = new Spinner(this);
         List<String> foodNames = new ArrayList<>();
+        foodNames.add("Select food item...");
         for (Food f : foods) foodNames.add(f.name);
         ArrayAdapter<String> adapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, foodNames) {
-            @Override
-            public View getView(int position, View convertView, ViewGroup parent) {
-                TextView v = (TextView) super.getView(position, convertView, parent);
-                v.setTextColor(TEXT);
-                v.setTextSize(16);
-                v.setPadding(dp(10), 0, dp(10), 0);
+            private TextView makeRow(int position, boolean dropdown) {
+                TextView v = new TextView(MainActivity.this);
+                v.setText(foodNames.get(position));
+                v.setTextSize(dropdown ? 17 : 16);
+                v.setGravity(Gravity.CENTER_VERTICAL);
+                v.setPadding(dp(14), dropdown ? dp(14) : 0, dp(14), dropdown ? dp(14) : 0);
+                if (dropdown) {
+                    v.setTextColor(Color.rgb(20, 23, 28));
+                    v.setBackgroundColor(Color.rgb(248, 249, 251));
+                    v.setMinHeight(dp(54));
+                } else {
+                    v.setTextColor(position == 0 ? MUTED : TEXT);
+                    v.setBackgroundColor(Color.TRANSPARENT);
+                }
                 return v;
             }
 
             @Override
+            public View getView(int position, View convertView, ViewGroup parent) {
+                return makeRow(position, false);
+            }
+
+            @Override
             public View getDropDownView(int position, View convertView, ViewGroup parent) {
-                TextView v = (TextView) super.getDropDownView(position, convertView, parent);
-                v.setTextColor(Color.BLACK);
-                v.setTextSize(16);
-                v.setPadding(dp(14), dp(12), dp(14), dp(12));
-                return v;
+                return makeRow(position, true);
             }
         };
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         foodSpinner.setAdapter(adapter);
-        foodSpinner.setBackground(rounded(CARD_2, 12, 0, Color.TRANSPARENT));
-        LinearLayout.LayoutParams spinLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(54));
+        foodSpinner.setBackground(rounded(CARD_2, 12, 1, Color.rgb(76, 83, 95)));
+        foodSpinner.setPopupBackgroundDrawable(rounded(Color.rgb(248, 249, 251), 12, 0, Color.TRANSPARENT));
+        LinearLayout.LayoutParams spinLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56));
         spinLp.topMargin = dp(8);
         logCard.addView(foodSpinner, spinLp);
 
@@ -239,6 +243,8 @@ public class MainActivity extends Activity {
         amountRow.setGravity(Gravity.CENTER_VERTICAL);
         amountInput = new EditText(this);
         amountInput.setTextColor(TEXT);
+        amountInput.setHintTextColor(MUTED);
+        amountInput.setHint("Amount");
         amountInput.setTextSize(20);
         amountInput.setSingleLine(true);
         amountInput.setGravity(Gravity.CENTER);
@@ -251,7 +257,7 @@ public class MainActivity extends Activity {
 
         unitLabel = text("", 16, MUTED, true);
         unitLabel.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams unitLp = new LinearLayout.LayoutParams(dp(100), dp(54));
+        LinearLayout.LayoutParams unitLp = new LinearLayout.LayoutParams(dp(110), dp(54));
         unitLp.topMargin = dp(10);
         unitLp.leftMargin = dp(8);
         amountRow.addView(unitLabel, unitLp);
@@ -277,17 +283,50 @@ public class MainActivity extends Activity {
         loggedList.setOrientation(LinearLayout.VERTICAL);
         body.addView(loggedList, lpMatchWrap());
 
+        // Macro chart intentionally sits at the bottom of the live Today screen.
+        LinearLayout chartCard = cardLayout();
+        TextView chartTitle = text("MACRO SPLIT", 13, MUTED, true);
+        chartCard.addView(chartTitle);
+        pieView = new MacroPieView(this);
+        LinearLayout.LayoutParams pieLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(190));
+        pieLp.topMargin = dp(4);
+        chartCard.addView(pieView, pieLp);
+
+        LinearLayout legendRow = new LinearLayout(this);
+        legendRow.setOrientation(LinearLayout.HORIZONTAL);
+        legendRow.setGravity(Gravity.CENTER);
+        proteinLegend = text("Protein 0%", 14, PROTEIN, true);
+        carbsLegend = text("Carbs 0%", 14, CARBS, true);
+        fatLegend = text("Fat 0%", 14, FAT, true);
+        proteinLegend.setGravity(Gravity.CENTER);
+        carbsLegend.setGravity(Gravity.CENTER);
+        fatLegend.setGravity(Gravity.CENTER);
+        legendRow.addView(proteinLegend, new LinearLayout.LayoutParams(0, dp(34), 1));
+        legendRow.addView(carbsLegend, new LinearLayout.LayoutParams(0, dp(34), 1));
+        legendRow.addView(fatLegend, new LinearLayout.LayoutParams(0, dp(34), 1));
+        chartCard.addView(legendRow, lpMatchWrap());
+        LinearLayout.LayoutParams chartLp = cardLp();
+        chartLp.topMargin = dp(10);
+        body.addView(chartCard, chartLp);
+
         foodSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                if (editingIndex < 0) fillDefaultAmount(position);
+                if (editingIndex >= 0) return;
+                if (position == 0) {
+                    amountInput.setText("");
+                    unitLabel.setText("");
+                } else {
+                    fillDefaultAmount(position - 1);
+                }
             }
             @Override public void onNothingSelected(AdapterView<?> parent) { }
         });
         logButton.setOnClickListener(v -> saveLogItem());
 
-        fillDefaultAmount(0);
+        resetLogForm();
         refreshTodayUi();
-        content.addView(scroll, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        page.addView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+        content.addView(page, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     }
 
     private void fillDefaultAmount(int foodPosition) {
@@ -296,9 +335,20 @@ public class MainActivity extends Activity {
         unitLabel.setText(f.unit);
     }
 
+    private void resetLogForm() {
+        editingIndex = -1;
+        if (foodSpinner != null) foodSpinner.setSelection(0, false);
+        if (amountInput != null) amountInput.setText("");
+        if (unitLabel != null) unitLabel.setText("");
+        if (logButton != null) logButton.setText("LOG FOOD");
+    }
+
     private void saveLogItem() {
-        int position = foodSpinner.getSelectedItemPosition();
-        if (position < 0) return;
+        int spinnerPosition = foodSpinner.getSelectedItemPosition();
+        if (spinnerPosition <= 0) {
+            Toast.makeText(this, "Choose a food item", Toast.LENGTH_SHORT).show();
+            return;
+        }
         String raw = amountInput.getText().toString().trim();
         if (raw.isEmpty()) {
             Toast.makeText(this, "Enter an amount", Toast.LENGTH_SHORT).show();
@@ -316,17 +366,15 @@ public class MainActivity extends Activity {
             return;
         }
 
-        Food food = foods.get(position);
+        Food food = foods.get(spinnerPosition - 1);
         Entry entry = Entry.fromFood(food, amount);
         if (editingIndex >= 0 && editingIndex < todayEntries.size()) {
             todayEntries.set(editingIndex, entry);
-            editingIndex = -1;
-            logButton.setText("LOG FOOD");
         } else {
             todayEntries.add(entry);
         }
         persistTodayEntries();
-        fillDefaultAmount(position);
+        resetLogForm();
         refreshTodayUi();
     }
 
@@ -342,7 +390,9 @@ public class MainActivity extends Activity {
         double pPct = macroCalories > 0 ? totals.protein * 4 * 100 / macroCalories : 0;
         double cPct = macroCalories > 0 ? totals.carbs * 4 * 100 / macroCalories : 0;
         double fPct = macroCalories > 0 ? totals.fat * 9 * 100 / macroCalories : 0;
-        macroLegend.setText("Protein " + Math.round(pPct) + "%   •   Carbs " + Math.round(cPct) + "%   •   Fat " + Math.round(fPct) + "%");
+        proteinLegend.setText("Protein " + Math.round(pPct) + "%");
+        carbsLegend.setText("Carbs " + Math.round(cPct) + "%");
+        fatLegend.setText("Fat " + Math.round(fPct) + "%");
         pieView.setMacros(totals.protein, totals.carbs, totals.fat);
 
         renderLoggedItems();
@@ -401,7 +451,7 @@ public class MainActivity extends Activity {
         int pos = findFoodPosition(e.foodId);
         if (pos < 0) return;
         editingIndex = index;
-        foodSpinner.setSelection(pos);
+        foodSpinner.setSelection(pos + 1);
         amountInput.setText(formatAmount(e.amount));
         unitLabel.setText(foods.get(pos).unit);
         logButton.setText("UPDATE ITEM");
@@ -416,9 +466,8 @@ public class MainActivity extends Activity {
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Delete", (dialog, which) -> {
                     todayEntries.remove(index);
-                    editingIndex = -1;
-                    logButton.setText("LOG FOOD");
                     persistTodayEntries();
+                    resetLogForm();
                     refreshTodayUi();
                 })
                 .show();
